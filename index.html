@@ -3,7 +3,7 @@
 
 <head>
   <meta charset='utf-8' />
-  <title></title>
+  <title>Mapbox Example</title>
   <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.0/jquery.min.js"></script>
   <script src='https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js'></script>
@@ -79,7 +79,6 @@
 
   <div id='map'></div>
   <script>
-
     var transformRequest = (url, resourceType) => {
       var isMapboxRequest =
         url.slice(8, 22) === "api.mapbox.com" ||
@@ -90,27 +89,28 @@
           : url
       };
     };
-    //YOUR TURN: add your Mapbox token
 
-    mapboxgl.accessToken = 'pk.eyJ1IjoiZGpoeXVuIiwiYSI6ImNsd3Y2cDJ1aTBrcXIya3E3a3d3MnA4bGoifQ.lYsVjUHjaydplxjVKnpFtg'; //Mapbox token
+    mapboxgl.accessToken = 'pk.eyJ1IjoiZGpoeXVuIiwiYSI6ImNsd3Y2cDJ1aTBrcXIya3E3a3d3MnA4bGoifQ.lYsVjUHjaydplxjVKnpFtg';
     var map = new mapboxgl.Map({
-      container: 'map', // container id
-      style: 'https://mapbox://styles/mapbox/standard', // YOUR TURN: choose a style: https://docs.mapbox.com/api/maps/#styles
-      center: [-122.411, 37.785], // starting position [lng, lat]
-      zoom: 8,// starting zoom
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v11', // Updated style
+      center: [-122.411, 37.785],
+      zoom: 8,
       transformRequest: transformRequest
     });
 
     $(document).ready(function () {
       $.ajax({
         type: "GET",
-        //YOUR TURN: Replace with csv export link
         url: 'https://docs.google.com/spreadsheets/d/10eRGA7GrRIkWswSWuD4Uh5FpCqqd7PZ5lNXEHqeJOYY/gviz/tq?tqx=out:csv&sheet=cal_haunted_places',
         dataType: "text",
-        success: function (csvData) { makeGeoJSON(csvData); }
+        success: function (csvData) {
+          makeGeoJSON(csvData);
+        },
+        error: function (xhr, status, error) {
+          console.error("Error fetching CSV data:", status, error);
+        }
       });
-
-
 
       function makeGeoJSON(csvData) {
         csv2geojson.csv2geojson(csvData, {
@@ -118,9 +118,12 @@
           lonfield: 'longitude',
           delimiter: ','
         }, function (err, data) {
-          map.on('load', function () {
+          if (err) {
+            console.error("Error converting CSV to GeoJSON:", err);
+            return;
+          }
 
-            //Add the the layer to the map
+          map.on('load', function () {
             map.addLayer({
               'id': 'csvData',
               'type': 'circle',
@@ -136,25 +139,15 @@
               }
             });
 
-
-            // When a click event occurs on a feature in the csvData layer, open a popup at the
-            // location of the feature, with description HTML from its properties.
             map.on('click', 'csvData', function (e) {
               var coordinates = e.features[0].geometry.coordinates.slice();
+              var description = `<h3>` + e.features[0].properties.city + `</h3>` +
+                `<h4>` + `<b>` + `Description: ` + `</b>` + e.features[0].properties.description + `</h4>` +
+                `<h4>` + `<b>` + `Location: ` + `</b>` + e.features[0].properties.location + `</h4>`;
 
-              //set popup text
-              //You can adjust the values of the popup to match the headers of your CSV.
-              // For example: e.features[0].properties.Name is retrieving information from the field Name in the original CSV.
-              var description = `<h3>` + e.features[0].properties.city + `</h3>` + `<h4>` + `<b>` + `Description: ` + `</b>` + e.features[0].properties.description + `</h4>` + `<h4>` + `<b>` + `Location: ` + `</b>` + e.features[0].properties.location + `</h4>`;
-
-              // Ensure that if the map is zoomed out such that multiple
-              // copies of the feature are visible, the popup appears
-              // over the copy being pointed to.
               while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
                 coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
               }
-
-              //add Popup to map
 
               new mapboxgl.Popup()
                 .setLngLat(coordinates)
@@ -162,28 +155,20 @@
                 .addTo(map);
             });
 
-            // Change the cursor to a pointer when the mouse is over the places layer.
             map.on('mouseenter', 'csvData', function () {
               map.getCanvas().style.cursor = 'pointer';
             });
 
-            // Change it back to a pointer when it leaves.
-            map.on('mouseleave', 'places', function () {
+            map.on('mouseleave', 'csvData', function () {
               map.getCanvas().style.cursor = '';
             });
 
             var bbox = turf.bbox(data);
             map.fitBounds(bbox, { padding: 50 });
-
           });
-
         });
-      };
+      }
     });
-
-
-
-
   </script>
 
 </body>
